@@ -1,0 +1,9 @@
+{
+    "dataset":"fakebr",
+    "model":"bertimbau",
+    "kfold":true,
+    "split":5,
+    "lr": 1e-5,
+    "epochs":3,
+    "num_labels":1
+}
