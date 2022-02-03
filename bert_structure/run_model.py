@@ -112,10 +112,11 @@ class RunableModel():
 			output_dir = "./results", 
 			do_train = True,
 			do_eval = True,
-			evaluation_strategy = "epoch",
-			save_strategy = "epoch",
+			evaluation_strategy = "steps",
+			save_strategy = "steps",
+			logging_dir='./logs',
 			logging_strategy= "steps",
-			logging_dir= "logs",
+			logging_steps=20,
 			num_train_epochs = self.config["epochs"],
 			learning_rate=self.config["lr"],
 			load_best_model_at_end=True,
@@ -137,7 +138,10 @@ class RunableModel():
 		y_true = test_data['labels'] 
 		conf_matrix= confusion_matrix(y_true,y_pred).ravel()
 		
-		return conf_matrix
+		train_log = trainer.state.log_history
+
+		return conf_matrix,train_log
+
 	
 	
 
@@ -155,15 +159,16 @@ class RunableModel():
 		#	chama o train_test_evaluate
 		#	add resultados no array/tabelamodel
 		results_total = pd.DataFrame(columns=["TP","TN","FP","FN"]) #tn, fp, fn, tp)
-
+		log_report = {}
 		for k in range(self.config['split']):
 			train_parts = self.dataset_parts.copy()
 			test_data = train_parts.pop(k)
 			train_data = concatenate_datasets(train_parts)
 
-			conf_matrix = self.train_test_loop(self.model,self.config['lr'],train_data,test_data)
+			conf_matrix,train_log = self.train_test_loop(self.model,self.config['lr'],train_data,test_data)
+			log_report[k] = train_log
 			results_total.loc[len(results_total)] = conf_matrix
-		return results_total
+		return results_total, log_report
 
 	def run_simple(self):
 
@@ -178,15 +183,16 @@ class RunableModel():
 		self.config = requirements
 		self.load_model()
 		self.model.create_model()
+		self.model.model.to(self.config["device"])
 		self.load_data(self.config["dataset"],self.config["kfold"],self.config["split"])
 		# self.model = self.load_model()
 		if self.config["kfold"]:
-			results = self.run_kfold()
+			results,train_log = self.run_kfold()
 			
 		else: 
 			results = self.run_simple()
 		# self.export_results(results)
-		return results
+		return results,train_log
 
 
 
