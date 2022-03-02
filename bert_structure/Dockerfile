@@ -3,6 +3,7 @@
 FROM pytorch/pytorch
 
 RUN pip3 install --upgrade pip
+# RUN apt install socat --> pra mandar pra tcp
 # RUN pip3 install tensorflow
 # RUN echo pip -v
 # RUN pip3 install torch==1.5.0

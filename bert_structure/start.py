@@ -1,7 +1,10 @@
 # from bayes_opt import BayesianOptimization
 import pandas as pd
-import json, datetime, sys,os
+import json, datetime, sys,os, time
 import run_model
+
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
 import torch
 
 
@@ -26,9 +29,9 @@ if len(sys.argv) < 2:
 	quit()
 
 if __name__ == '__main__':
-
-
-	device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+	
+	tic = time.process_time()
+	device = torch.device("cuda:3") if torch.cuda.is_available() else torch.device("cpu")
 
 	print("Device used:",device)
 	CONFIG_FILE = sys.argv[1]
@@ -42,9 +45,18 @@ if __name__ == '__main__':
 	config["device"] = device
 	# print(str(device))
 	# quit()
-	runnable_model = run_model.RunableModel()
-	retults,train_log = runnable_model.run_turn(config)
-	export_results(retults,config,train_log)
+	results_total = pd.DataFrame(columns=["TN","FP","FN","TP"]) #tn, fp, fn, tp)
+	train_logs = []
+	for i in range(config["turns"]):
+		runnable_model = run_model.RunableModel()
+		results,train_log = runnable_model.run_turn(config)
+		print(results)
+		results_total = results_total.append(results)
+		train_logs.append(train_log)
+	export_results(results_total,config,train_logs)
+
+	toc = time.process_time()
+	print("\nPROCESSING TIME: ",toc-tic)
 	
 
 

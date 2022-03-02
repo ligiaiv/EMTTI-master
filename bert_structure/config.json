@@ -4,6 +4,7 @@
     "kfold":true,
     "split":5,
     "lr": 1e-5,
-    "epochs":3,
-    "num_labels":1
+    "epochs":1,
+    "num_labels":2,
+    "turns":4
 }

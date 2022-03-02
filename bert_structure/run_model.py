@@ -6,6 +6,8 @@
 # from keras.callbacks import EarlyStopping,ModelCheckpoint
 # from keras.optimizers import Adam
 import os
+
+import datasets
 # from helper import DataHandler, get_accuracy
 import models
 # from sklearn.model_selection import StratifiedKFold
@@ -23,8 +25,8 @@ import numpy as np
 from tqdm.auto import tqdm
 
 from datasets import load_metric
-
-
+from torch.nn.functional import one_hot
+import torch
 class WrongInput(Exception):
     """Base class for other exceptions"""
     pass
@@ -34,7 +36,7 @@ class RunableModel():
 	def __init__(self):
 		# self.arch = arch
 
-		self.MAXLEN = 40
+		self.MAXLEN = 5
 		self.MAX_VOCAB_SIZE=20000
 		self.path = os.getcwd()+"/"
 
@@ -47,7 +49,9 @@ class RunableModel():
 	def tokenize_function(self,examples):
 			return self.tokenizer(examples['text'], padding="max_length", truncation=True, max_length=200)
 
-
+	def one_hot(self,example):	
+		example['class'] = [0.0,1.0] if example['class'] else [1.0,0.0] 
+		return example
 	#	Loads dataset and creates train/test sets
 	def load_data(self,datafile,kfold,split):
 		print("Reading data file ...")
@@ -56,15 +60,22 @@ class RunableModel():
 			for i in range( split):
 				print("datafile",datafile)
 				data_partial = load_dataset('csv',data_files = "Datasets/{}_{}.csv".format(datafile,i+1))['train']
-				#	Ajusting labels
-				new_features = data_partial.features.copy()
-				new_features['class'] = Value('float')
-				data_partial = data_partial.cast(new_features)
+				# base = [0]*data_partial['class']
 
+				# print("type",type(data_partial['class'][0]))
+				# data_partial= data_partial.map(self.one_hot)
+					# Ajusting labels
+				new_features = data_partial.features.copy()
+				new_features['class'] = datasets.ClassLabel(2,names=["Real","Fake"]) # 
+				# # new_features['class'] = Value('float')
+				data_partial = data_partial.cast(new_features)
+				print(data_partial['class'])
 				data_partial = data_partial.rename_column("class", "labels")
 
+				print(data_partial.features)
 				data_tokenized = data_partial.map(self.tokenize_function,batched=False)
-				
+				data_tokenized.set_format(type=data_tokenized.format["type"], columns=['labels','input_ids','token_type_ids','attention_mask'])
+
 				self.dataset_parts.append(data_tokenized)
 
 			
@@ -92,11 +103,16 @@ class RunableModel():
 	def compute_metrics(self,eval_pred):
 		logits, labels = eval_pred
 		predictions = np.argmax(logits, axis=-1)
-		return self.metric.compute(predictions=predictions, references=labels)
+		print("Predictions",eval_pred)
+		avg = np.average(predictions==labels)
+		# return avg
+		metric_result = self.metric.compute(predictions=predictions, references=labels)
+		print("Mine{} tehirs{}".format(avg,metric_result))
+
+		return metric_result
 
 	def train_test_loop(self,model_obj,lr,train_data,test_data):
-		batch_size = 64
-		epochs = 20
+		max_batch_size = 4
 		#
 		#	Create val dataset with 10% train
 		data_split = train_data.train_test_split(0.1)
@@ -109,6 +125,7 @@ class RunableModel():
 		#	Return conf_matrix in array
 		
 		training_args = TrainingArguments(
+			# label_names=["label"],
 			output_dir = "./results", 
 			do_train = True,
 			do_eval = True,
@@ -116,27 +133,54 @@ class RunableModel():
 			save_strategy = "steps",
 			logging_dir='./logs',
 			logging_strategy= "steps",
-			logging_steps=20,
+			logging_steps=400,
+			eval_steps=400,
+			save_steps= 400,
 			num_train_epochs = self.config["epochs"],
 			learning_rate=self.config["lr"],
+			weight_decay=0.01,
 			load_best_model_at_end=True,
 			metric_for_best_model = "accuracy",
-			greater_is_better= True
+			greater_is_better= True,
+			#Performance part
+			per_device_train_batch_size=max_batch_size,
+			per_device_eval_batch_size=max_batch_size,
 			)
+		print("TRAINDATA",train_data.features)
 
-		trainer = Trainer(model=self.model.model, 
-		args=training_args, 
-		train_dataset=train_data, 
-		eval_dataset=val_data,
-		compute_metrics = self.compute_metrics)
-		trainer.train()
+		print("VALDATA",val_data.features)
+		trainer = models.MyTrainer(
+			model=self.model.model, 
+			args=training_args, 
+			train_dataset=train_data, 
+			eval_dataset=val_data,
+			compute_metrics = self.compute_metrics
+		)
 		
-		# Test
+		print(trainer.train_dataset[0])
+
+		trainer.train()
+
+
+		# try:
+		# 	trainer.train()
+		# except Exception as e:
+		# 	print(trainer.train_dataset[0])
+
+		# 	for batch in trainer.get_train_dataloader():
+		# 		print({k: v.shape for k, v in batch.items()})
+
+		# 	print(e)
+		# 	quit()
+
 
 		outputs = trainer.predict(test_data)
 		y_pred = outputs.predictions.argmax(1)
+		print("y_pred",outputs.predictions)
 		y_true = test_data['labels'] 
-		conf_matrix= confusion_matrix(y_true,y_pred).ravel()
+		conf_matrix= confusion_matrix(y_true,y_pred)
+		print(conf_matrix)
+		conf_matrix = conf_matrix.ravel()
 		
 		train_log = trainer.state.log_history
 
@@ -158,7 +202,7 @@ class RunableModel():
 		#	pega o model
 		#	chama o train_test_evaluate
 		#	add resultados no array/tabelamodel
-		results_total = pd.DataFrame(columns=["TP","TN","FP","FN"]) #tn, fp, fn, tp)
+		results_total = pd.DataFrame(columns=["TN","FP","FN","TP"]) #tn, fp, fn, tp)
 		log_report = {}
 		for k in range(self.config['split']):
 			train_parts = self.dataset_parts.copy()
@@ -166,6 +210,7 @@ class RunableModel():
 			train_data = concatenate_datasets(train_parts)
 
 			conf_matrix,train_log = self.train_test_loop(self.model,self.config['lr'],train_data,test_data)
+			# conf_matrix,train_log = ([1,1,1,1],{'s':5})
 			log_report[k] = train_log
 			results_total.loc[len(results_total)] = conf_matrix
 		return results_total, log_report
@@ -183,7 +228,7 @@ class RunableModel():
 		self.config = requirements
 		self.load_model()
 		self.model.create_model()
-		self.model.model.to(self.config["device"])
+		self.model.model = self.model.model.to(self.config["device"])
 		self.load_data(self.config["dataset"],self.config["kfold"],self.config["split"])
 		# self.model = self.load_model()
 		if self.config["kfold"]:
