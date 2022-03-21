@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoModel, AutoModelForSequenceClassification
+from transformers import AutoModel, AutoModelForSequenceClassification, AutoTokenizer
 from transformers import Trainer
 
 
@@ -10,14 +10,15 @@ class BERTimbau():
         # self.model = AutoModelForSequenceClassification.from_pretrained('neuralmind/bert-base-portuguese-cased',num_labels=2,problem_type="multi_label_classification")
         self.model = AutoModelForSequenceClassification.from_pretrained('neuralmind/bert-base-portuguese-cased',num_labels=2)
         # self.model.classifier = torch.nn.Linear(self.model.pooler.dense.in_features, self.num_labels)
-        
+        self.tokenizer = AutoTokenizer.from_pretrained('neuralmind/bert-base-portuguese-cased', do_lower_case=False,is_split_into_words=True)
+
 class MultilingualBERT():
     def __init__(self,parameters):
         self.num_labels = parameters["num_labels"]
 
     def create_model(self):
         self.model = AutoModelForSequenceClassification.from_pretrained(model='bert-base-multilingual-cased')
-    
+        self.tokenizer = AutoTokenizer.from_pretrained(model='bert-base-multilingual-cased')
 class MyTrainer(Trainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

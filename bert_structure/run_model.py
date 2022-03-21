@@ -97,8 +97,7 @@ class RunableModel():
 	def load_model(self):
 		if self.config["model"] == "bertimbau":
 			self.model = models.BERTimbau(self.config)
-			self.tokenizer = AutoTokenizer.from_pretrained('neuralmind/bert-base-portuguese-cased', do_lower_case=False,is_split_into_words=True)
-
+		self.tokenizer = self.model.tokenizer
 
 	def compute_metrics(self,eval_pred):
 		logits, labels = eval_pred
