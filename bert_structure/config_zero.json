@@ -1,0 +1,12 @@
+{
+    "base":"transformer",
+    "dataset":["fakeeng","fakebr"],
+    "model":"multilingual",
+    "mode":"train_test",
+    "kfold":true,
+    "split":5,
+    "lr": 1e-5,
+    "epochs":1,
+    "num_labels":2,
+    "turns":4
+}

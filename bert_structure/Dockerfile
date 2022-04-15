@@ -1,30 +1,43 @@
 # FROM python:3.6
 # FROM tensorflow/tensorflow
-FROM pytorch/pytorch
+FROM nvidia/cuda:11.0-base
+FROM pytorch/pytorch:1.9.1-cuda11.1-cudnn8-devel
 
-RUN pip3 install --upgrade pip
+# FROM pytorch/pytorch:1.11.0-cuda11.3-cudnn8-devel
+# FROM pytorch/pytorch:1.9.1-cuda11.1-cudnn8-devel
+#  orch/pytorch:1.7.0-cuda11.0-cudnn8-devel
+# RUN python -m pip install --upgrade pip
+
+RUN pip install --upgrade pip
 # RUN apt install socat --> pra mandar pra tcp
-# RUN pip3 install tensorflow
+# RUN pip install tensorflow
 # RUN echo pip -v
-# RUN pip3 install torch==1.5.0
-# RUN pip3 install torch
-# RUN pip3 install torchvision==0.8.2+cpu
-RUN pip3 install numpy==1.19.4
-RUN pip3 install tensorflow==2.4.0 
-RUN pip3 install pyyaml
-# RUN pip3 install keras --no-deps 
-RUN pip3 install pandas==1.2.0
-RUN pip3 install transformers==4.15.0
-RUN pip3 install datasets==1.16.1
-RUN pip3 install -U scikit-learn==0.24.0
-
-# RUN pip3 install scikit-learn
-# RUN pip3 install matplotlib
-# RUN pip3 install h5py
-# RUN pip3 install bayesian-optimization
+# RUN pip install torch==1.5.0
+# RUN pip install torch
+# RUN pip install torchvision==0.8.2+cpu
+RUN pip install numpy==1.19.4
+RUN pip install tensorflow==2.4.0 
+RUN pip install pyyaml
+# RUN pip install keras --no-deps 
+RUN pip install pandas==1.2.0
+RUN pip install transformers==4.15.0
+RUN pip install datasets==1.16.1
+RUN pip install -U scikit-learn==0.24.0
 
 
-# RUN pip3 install nltk
+# RUN pip install torchtext==0.10.1
+
+RUN pip install spacy==3.2.4
+
+RUN python3 -m spacy download pt_core_news_sm
+
+# RUN pip install scikit-learn
+# RUN pip install matplotlib
+# RUN pip install h5py
+# RUN pip install bayesian-optimization
+
+
+# RUN pip install nltk
 
 COPY prepare.py /workspace/prepare.py
 USER root

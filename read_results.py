@@ -3,6 +3,7 @@ import json
 import numpy as np
 import os,sys
 from io import StringIO
+from pprint import pprint
 
 
 if __name__ == '__main__':
@@ -26,3 +27,4 @@ if __name__ == '__main__':
     data_DF['avg'] = (data_DF.iloc[:, 1]+data_DF.iloc[:, 4])/data_DF.iloc[:,1:5].sum(axis = 1)
     avg_acc = data_DF['avg'].mean()
     print("avg_acc", avg_acc)
+    pprint(data_dict["config"])

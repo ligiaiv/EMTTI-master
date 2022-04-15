@@ -1,7 +1,8 @@
 {
+    "base":"transformer",
     "dataset":"fakebr",
     "model":"bertimbau",
-    "kfold":true,
+    "mode":"kfold",
     "split":5,
     "lr": 1e-5,
     "epochs":1,

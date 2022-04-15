@@ -1,3 +1,4 @@
+from numpy.lib.type_check import real
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -27,22 +28,24 @@ def read_dataset(filename):
     # print(df["number of words without punctuation"])
     df_fake = df[df["class"] == False]
     df_real = df[df["class"] == True]
+    print("FAKE:{}\tREAL:{}".format(len(df_fake),len(df_real)))
     sns.set(style="darkgrid")
     # print(df_fake["number of words without punctuation"])
     # print(df_real["number of words without punctuation"])
+    PARTIAL_NAME = filename.split('.')[0]+"_"
     sns.histplot(data=df_real, x="word_count",binrange = [0,5000])
-    plt.savefig('hist_len_real.png')
+    plt.savefig(PARTIAL_NAME+'hist_len_real.png')
     plt.clf()
     sns.histplot(data=df_fake, x="word_count",binrange = [0,1000])
-    plt.savefig('hist_len_fake.png')
+    plt.savefig(PARTIAL_NAME+'hist_len_fake.png')
     plt.clf()
 
 
     sns.histplot(data=df_real, x="avg_word_len",binrange = [2,8])
-    plt.savefig('hist_wordlen_real.png')
+    plt.savefig(PARTIAL_NAME+'hist_wordlen_real.png')
     plt.clf()
     sns.histplot(data=df_fake, x="avg_word_len",binrange = [2,8])
-    plt.savefig('hist_wordlen_fake.png')
+    plt.savefig(PARTIAL_NAME+'hist_wordlen_fake.png')
     plt.clf()
 
     print("Fake",df_fake["word_count"].max())
@@ -52,6 +55,7 @@ def read_dataset(filename):
     print("total_words",len(all_words))
 
 if __name__ == '__main__':
-    read_dataset("fakebr.csv")
+    NAME = "fakeeng.csv"
+    read_dataset("fakeeng.csv")
     
 

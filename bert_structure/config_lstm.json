@@ -1,0 +1,15 @@
+{
+    "base":"torch",
+    "dataset":"fakebr",
+    "model":"LSTM",
+    "mode":"kfold",
+    "kfold":true,
+    "split":5,
+    "lr": 1e-5,
+    "batch":64,
+    "epochs":10,
+    "emb_dim":100,
+    "hidden_dim":10,
+    "num_labels":2,
+    "turns":4
+}

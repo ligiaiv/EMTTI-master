@@ -31,7 +31,7 @@ class WrongInput(Exception):
     """Base class for other exceptions"""
     pass
 
-class RunableModel():
+class TransformerRunableModel():
 
 	def __init__(self):
 		# self.arch = arch
@@ -47,16 +47,16 @@ class RunableModel():
 		
 
 	def tokenize_function(self,examples):
-			return self.tokenizer(examples['text'], padding="max_length", truncation=True, max_length=200)
+		return self.tokenizer(examples['text'], padding="max_length", truncation=True, max_length=200)
 
 	def one_hot(self,example):	
 		example['class'] = [0.0,1.0] if example['class'] else [1.0,0.0] 
 		return example
 	#	Loads dataset and creates train/test sets
-	def load_data(self,datafile,kfold,split):
+	def load_data(self,datafile,mode,split):
 		print("Reading data file ...")
 
-		if kfold:
+		if mode == "kfold":
 			for i in range( split):
 				print("datafile",datafile)
 				data_partial = load_dataset('csv',data_files = "Datasets/{}_{}.csv".format(datafile,i+1))['train']
@@ -69,16 +69,33 @@ class RunableModel():
 				new_features['class'] = datasets.ClassLabel(2,names=["Real","Fake"]) # 
 				# # new_features['class'] = Value('float')
 				data_partial = data_partial.cast(new_features)
-				print(data_partial['class'])
 				data_partial = data_partial.rename_column("class", "labels")
 
-				print(data_partial.features)
 				data_tokenized = data_partial.map(self.tokenize_function,batched=False)
 				data_tokenized.set_format(type=data_tokenized.format["type"], columns=['labels','input_ids','token_type_ids','attention_mask'])
 
 				self.dataset_parts.append(data_tokenized)
 
-			
+		elif mode == "train_test":
+			data_train = load_dataset('csv',data_files = "Datasets/{}.csv".format(datafile[0]))['train']
+			# print("DATA",data_train[0])
+			new_features = data_train.features.copy()
+			print(data_train.features)
+
+			new_features['class'] = datasets.ClassLabel(2,names=["Real","Fake"]) # 
+			data_train = data_train.cast(new_features)
+			data_train = data_train.rename_column("class", "labels")
+			data_tokenized = data_train.map(self.tokenize_function,batched=False)
+			self.dataset_train = data_tokenized
+
+			data_test = load_dataset('csv',data_files = "Datasets/{}.csv".format(datafile[1]))['train']
+			new_features = data_test.features.copy()
+			new_features['class'] = datasets.ClassLabel(2,names=["Real","Fake"]) # 
+			data_test = data_test.cast(new_features)
+			data_test = data_test.rename_column("class", "labels")
+			data_tokenized = data_test.map(self.tokenize_function,batched=False)
+			self.dataset_test = data_tokenized
+
 		else:
 
 			data_total = load_dataset('csv',data_files = "Datasets/{}.csv".format(datafile))['train']
@@ -90,13 +107,19 @@ class RunableModel():
 			data_total = data_total.rename_column("class", "labels")
 
 			data_tokenized = data_total.map(self.tokenize_function,batched=False)
-			self.data_complete = data_tokenized
+			# self.data_complete = data_tokenized
+			data_split = data_tokenized.train_test_split(self.config['split'])
+			self.dataset_train = data_split['train']
+			self.dataset_test = data_split['test']
 
 			
 		
 	def load_model(self):
 		if self.config["model"] == "bertimbau":
 			self.model = models.BERTimbau(self.config)
+		elif self.config["model"] == "multilingual":
+			self.model = models.MultilingualBERT(self.config)
+		self.model.create_model()
 		self.tokenizer = self.model.tokenizer
 
 	def compute_metrics(self,eval_pred):
@@ -155,7 +178,6 @@ class RunableModel():
 			eval_dataset=val_data,
 			compute_metrics = self.compute_metrics
 		)
-		
 		print(trainer.train_dataset[0])
 
 		trainer.train()
@@ -174,12 +196,14 @@ class RunableModel():
 
 
 		outputs = trainer.predict(test_data)
+		trainer.save_model("./models/model")
+
 		y_pred = outputs.predictions.argmax(1)
 		print("y_pred",outputs.predictions)
 		y_true = test_data['labels'] 
-		conf_matrix= confusion_matrix(y_true,y_pred)
-		print(conf_matrix)
-		conf_matrix = conf_matrix.ravel()
+		conf_matrix= confusion_matrix(y_true,y_pred).ravel()
+		# print(conf_matrix)
+		# conf_matrix = conf_matrix.ravel()
 		
 		train_log = trainer.state.log_history
 
@@ -216,25 +240,36 @@ class RunableModel():
 
 	def run_simple(self):
 
-			data_split = self.data_complete.train_test_split(self.config['split'])
-			train_data = data_split['train']
-			test_data = data_split['test']
-			conf_matrix = self.train_test_loop(self.model,self.config['lr'],train_data,test_data)
-			return conf_matrix
+		results_total = pd.DataFrame(columns=["TN","FP","FN","TP"]) #tn, fp, fn, tp)
+		log_report = {}
+		for k in range(self.config['split']):
+			conf_matrix,train_log = self.train_test_loop(self.model,self.config['lr'],self.dataset_train,self.dataset_test)
+			log_report[k] = train_log
+			results_total.loc[len(results_total)] = conf_matrix
+		return results_total, log_report
 
+	def run_once(self):
+		results_total = pd.DataFrame(columns=["TN","FP","FN","TP"]) #tn, fp, fn, tp)
+		log_report = {}
+		conf_matrix,train_log = self.train_test_loop(self.model,self.config['lr'],self.dataset_train,self.dataset_test)
+		log_report[0] = train_log
+		results_total.loc[len(results_total)] = conf_matrix
+		return results_total, log_report
 
 	def run_turn(self,requirements):
 		self.config = requirements
 		self.load_model()
-		self.model.create_model()
 		self.model.model = self.model.model.to(self.config["device"])
-		self.load_data(self.config["dataset"],self.config["kfold"],self.config["split"])
+		self.load_data(self.config["dataset"],self.config["mode"],self.config["split"])
 		# self.model = self.load_model()
-		if self.config["kfold"]:
+		if self.config["mode"] == "kfold":
 			results,train_log = self.run_kfold()
 			
+		elif self.config["mode"] == "normal":
+			results, train_log = self.run_once()
+
 		else: 
-			results = self.run_simple()
+			results, train_log = self.run_simple()
 		# self.export_results(results)
 		return results,train_log
 

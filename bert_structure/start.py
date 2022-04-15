@@ -1,12 +1,14 @@
 # from bayes_opt import BayesianOptimization
 import pandas as pd
 import json, datetime, sys,os, time
-import run_model
+from transformer_run_model import TransformerRunableModel
+from torch_run_model import TorchRunableModel
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
 import torch
 
+print("TORCH VERSION: ",print(torch.__version__))
 
 def export_results(results,config,train_log):
 	table = results.to_csv(None)
@@ -34,10 +36,19 @@ if __name__ == '__main__':
 	device = torch.device("cuda:3") if torch.cuda.is_available() else torch.device("cpu")
 
 	print("Device used:",device)
+	#
+	#	CUDA test
+	#
+	if torch.cuda.is_available():
+		print("torch.cuda.is_available()",torch.cuda.is_available())
+		print("torch.cuda.device_count()",torch.cuda.device_count())
+		print("torch.cuda.current_device()",torch.cuda.current_device())
+		print("torch.cuda.get_device_name(0)",torch.cuda.get_device_name(0))
+
 	CONFIG_FILE = sys.argv[1]
 	print("This FOLDER",os.getcwd())
 	files = [f for f in os.listdir('.') if os.path.isfile(f)]
-	print(files)
+	# print(files)
 	with open("BERT/"+CONFIG_FILE) as infile:
 		config = json.load(infile)
 	print(config)
@@ -48,7 +59,10 @@ if __name__ == '__main__':
 	results_total = pd.DataFrame(columns=["TN","FP","FN","TP"]) #tn, fp, fn, tp)
 	train_logs = []
 	for i in range(config["turns"]):
-		runnable_model = run_model.RunableModel()
+		if config["base"] == "transformer":
+			runnable_model = TransformerRunableModel()
+		else:
+			runnable_model = TorchRunableModel()
 		results,train_log = runnable_model.run_turn(config)
 		print(results)
 		results_total = results_total.append(results)

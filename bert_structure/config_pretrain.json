@@ -1,0 +1,11 @@
+{
+    "base":"transformer",
+    "dataset":"fakeeng",
+    "model":"multilingual",
+    "mode":"normal",
+    "split":0.9,
+    "lr": 1e-5,
+    "epochs":1,
+    "num_labels":2,
+    "turns":1
+}
