@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import numpy as np
+
 
 from transformers import AutoModel, AutoModelForSequenceClassification, AutoTokenizer
 from transformers import Trainer, TrainingArguments
@@ -117,11 +119,14 @@ class LSTMgeneral():
 									vocab_size = vocab_size,
 									target_size = self.parameters["num_labels"]
 									)
-		self.optimizer = optim.Adam(self.model.parameters(),lr = self.parameters["lr"])
-		# self.criterion = nn.BCEWithLogitsLoss()
-		self.criterion = F.binary_cross_entropy
+		# self.optimizer = optim.Adam(self.model.parameters(),lr = self.parameters["lr"])
+		
+		self.optimizer = optim.RMSprop(self.model.parameters(),lr = self.parameters["lr"])
+		self.criterion = nn.BCELoss()
+		# self.criterion = F.binary_cross_entropy
 	def train(self,iterator,metric):
 		epoch_loss = 0
+		epoch_acc = 0
 
 		self.model.train()  # Train mode is on
 
@@ -142,13 +147,16 @@ class LSTMgeneral():
 
 			# print("predictions_",predictions_bin.shape,predictions_bin) ## forward propagation
 			loss = self.criterion(y_pred, y)
+			acc = metric(y_pred, y)
+
 			loss.backward()  ## backward propagation / calculate gradients
 			self.optimizer.step()  ## update parameters
 			epoch_loss += loss.item()
+			epoch_acc += acc["accuracy"]
 
 			print("In batch: \t loss: {},\r".format(loss))
 
-		return epoch_loss / len(iterator)
+		return epoch_loss / len(iterator), epoch_acc / len(iterator)
 
 	def evaluate(self, iterator,metric):
 		
@@ -162,17 +170,38 @@ class LSTMgeneral():
 			for x_batch, y_batch  in iterator:
 				x = x_batch.type(torch.LongTensor)
 				y = y_batch.type(torch.FloatTensor)
-
+				# print("x,y",x,y)
 				if len(y.shape) == 1:
 					y = torch.column_stack((y, y.logical_not()))
 				predictions = self.model(x) 
 				loss = self.criterion(predictions, y)
+				# print("loss",loss)
 				acc = metric(predictions, y)
-				epoch_loss += loss.item()
-				epoch_acc += acc.item()
+				epoch_loss += loss
+				epoch_acc += acc["accuracy"]
 				
 		return epoch_loss / len(iterator), epoch_acc / len(iterator)
 
+	def predict(self,iterator):
+		all_predictions = np.ndarray((0,self.num_labels))
+		
+		self.model.eval() #Evaluation mode is on
+		
+		with torch.no_grad():
+
+			for x_batch, y_batch  in iterator:
+				x = x_batch.type(torch.LongTensor)
+				y = y_batch.type(torch.FloatTensor)
+				# print("x,y",x,y)
+				if len(y.shape) == 1:
+					y = torch.column_stack((y, y.logical_not()))
+				predictions = self.model(x) 
+				# print("SIZE",predictions.size())
+				all_predictions = np.append(all_predictions, predictions, axis=0)
+				# loss = self.criterion(predictions, y)
+				# # print("loss",loss)
+				# acc = metric(predictions, y)
+		return all_predictions
 class MyTrainer(Trainer):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -218,18 +247,23 @@ class LSTMClassifier(nn.Module):
 		self.word_embeddings = nn.Embedding(vocab_size,embedding_dim)
 
 		# self.lstm = nn.LSTM(input_size=self.hidden_dim, hidden_size=self.hidden_dim, num_layers=self.LSTM_layers, batch_first=True)
-		self.lstm = nn.LSTM(input_size = embedding_dim,hidden_size = hidden_dim,num_layers=self.lstm_layers)
+		self.lstm = nn.LSTM(input_size = embedding_dim,hidden_size = hidden_dim,num_layers=self.lstm_layers, batch_first=True)
 
 		self.linear = nn.Linear(hidden_dim,target_size)
 
 
 	def forward(self,sentence):
-
+		# print("sentence in forward",sentence)
 		# Hidden and cell state definion
-		h0 = torch.zeros((self.lstm_layers, sentence.size(0), self.embedding_dim))
-		c0 = torch.zeros((self.lstm_layers, sentence.size(0), self.embedding_dim))
+		# print(type(sentence))
+
+
+
+		##Sentences arrive here as tensors of ints
+		h0 = torch.zeros((self.lstm_layers, sentence.size(0), self.hidden_dim))
+		c0 = torch.zeros((self.lstm_layers, sentence.size(0), self.hidden_dim))
 		
-		# Initialization fo hidden and cell states
+		# # Initialization fo hidden and cell states
 		torch.nn.init.xavier_normal_(h0)
 		torch.nn.init.xavier_normal_(c0)
 
@@ -237,8 +271,8 @@ class LSTMClassifier(nn.Module):
 		# print("embeds",embeds.size())
 		# print("embeds",embeds.size())
 
-		# lstm_out, (hn, cn) = self.lstm(embeds,(h0,c0))
-		lstm_out, (hn, cn) = self.lstm(embeds)
+		lstm_out, (hn, cn) = self.lstm(embeds,(h0,c0))
+		# lstm_out, (hn, cn) = self.lstm(embeds)
 		# print("lstm_out",lstm_out.size())
 
 		# out, (hidden, cell) = self.lstm(out, (h,c))

@@ -5,6 +5,7 @@
 # from keras.preprocessing.text import Tokenizer
 # from keras.callbacks import EarlyStopping,ModelCheckpoint
 # from keras.optimizers import Adam
+from doctest import Example
 import os,random
 
 # from helper import DataHandler, get_accuracy
@@ -107,15 +108,26 @@ class TorchRunableModel():
 
 	def compute_metrics(self,y_pred,y_real):
 		# logits, labels = eval_pred
-		predictions = np.argmax(y_pred, axis=-1)
-		real = np.argmax(y_real, axis=-1)
-		print("Predictions",predictions.shape,real.shape)
+		# print("******In compute metrics:    ")
+		predictions = np.argmax(y_pred.detach().numpy(), axis=-1)
+		real = np.argmax(y_real.detach().numpy(), axis=-1)
+		# print("Predictions",predictions.shape,real.shape)
 		avg = np.average(predictions==real)
 		# return avg
 		metric_result = self.metric.compute(predictions=predictions, references=real)
-		print("Mine{} tehirs{}".format(avg,metric_result))
+		# print("Mine{} tehirs{}".format(avg,metric_result))
 
 		return metric_result
+
+	# def predict(model, sentence):
+	# 	tokenized = [tok.text for tok in nlp.tokenizer(sentence)]  #tokenize the sentence 
+	# 	indexed = [TEXT.vocab.stoi[t] for t in tokenized]          #convert to integer sequence
+	# 	length = [len(indexed)]                                    #compute no. of words
+	# 	tensor = torch.LongTensor(indexed)                          #convert to tensor
+	# 	tensor = tensor.unsqueeze(1).T                             #reshape in form of batch,no. of words
+	# 	length_tensor = torch.LongTensor(length)                   #convert to tensor
+	# 	prediction = model(length, length_tensor)                  #prediction 
+	# 	return prediction.item()  
 
 	def train_test_loop(self,train_data,test_data):
 		max_batch_size = 4
@@ -125,7 +137,11 @@ class TorchRunableModel():
 		print("train {}\tval {}".format(len(train_data),len(val_data)))
 		print(train_data)
 
-		train_iterator,val_iterator = torchtext.data.BucketIterator.splits((train_data,val_data), batch_size = self.config["batch"])
+		train_iterator,val_iterator,test_iterator = torchtext.data.BucketIterator.splits(
+																	(train_data,val_data,test_data), 
+																	batch_size = self.config["batch"],
+																	sort_within_batch = True,
+																	sort_key = lambda x: len(x.text))
 
 
 		#	Define earlystopping
@@ -141,19 +157,27 @@ class TorchRunableModel():
 
 
 
-		for epoch in range(self.config["epochs"]):
+		# for epoch in range(self.config["epochs"]):
 
-			train_loss = self.model.train(train_iterator,self.compute_metrics)
-			print(train_loss)
-			_,train_acc = self.model.evaluate(train_iterator,self.compute_metrics)
-			val_loss,val_acc = self.model.evaluate(val_iterator,self.compute_metrics)
-			print(val_acc)
-			training_report.loc[len(training_report)] = [train_loss,train_acc,val_loss,val_acc]
-			print("Epoch {}: \tval loss: {},\t val_acc: {}".format(epoch,val_loss,val_acc))
+		# 	train_loss,train_acc = self.model.train(train_iterator,self.compute_metrics)
+		# 	# print(train_loss)
+		# 	# _,train_acc = self.model.evaluate(train_iterator,self.compute_metrics)
+		# 	val_loss,val_acc = self.model.evaluate(val_iterator,self.compute_metrics)
+		# 	# print(val_acc)
+		# 	training_report.loc[len(training_report)] = [train_loss,train_acc,val_loss,val_acc]
+		# 	print("Epoch {}: \tval loss: {},\t val_acc: {}".format(epoch,val_loss,val_acc))
 		print('\n\n')
-		prediction = self.model.model(test_data)
+		# print(test_data[0].__dict__)
+		# processed_test_data = [text for text,label in test_iterator]
+		# print(processed_test_data[0].size())
+		# processed_test_data = torch.tensor(processed_test_data)
+		# print(processed_test_data)
+		prediction = self.model.predict(test_iterator)
+		targets = np.fromiter(test_data.targets,float)
+		print(targets)
+		print("targets", targets.shape,prediction.shape)
 		results_total = pd.DataFrame(columns=["TN","FP","FN","TP"]) #tn, fp, fn, tp)
-		conf_matrix= confusion_matrix(test_data.targets,prediction).ravel()
+		conf_matrix= confusion_matrix(targets,prediction).ravel()
 
 
 		torch.save(self.model.model.state_dict(), "./models/model_LSTM")

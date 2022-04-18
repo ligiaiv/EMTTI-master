@@ -5,7 +5,7 @@
     "mode":"kfold",
     "kfold":true,
     "split":5,
-    "lr": 1e-5,
+    "lr": 1e-4,
     "batch":64,
     "epochs":10,
     "emb_dim":100,
