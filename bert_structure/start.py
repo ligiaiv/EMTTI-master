@@ -3,7 +3,7 @@ import pandas as pd
 import json, datetime, sys,os, time
 from transformer_run_model import TransformerRunableModel
 from torch_run_model import TorchRunableModel
-
+from keras_run_model import KerasRunableModel
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
 import torch
@@ -62,7 +62,7 @@ if __name__ == '__main__':
 		if config["base"] == "transformer":
 			runnable_model = TransformerRunableModel()
 		else:
-			runnable_model = TorchRunableModel()
+			runnable_model = KerasRunableModel()
 		results,train_log = runnable_model.run_turn(config)
 		print(results)
 		results_total = results_total.append(results)

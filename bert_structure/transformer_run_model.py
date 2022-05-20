@@ -9,7 +9,7 @@ import os
 
 import datasets
 # from helper import DataHandler, get_accuracy
-import models
+import bert_structure.torch_models as torch_models
 # from sklearn.model_selection import StratifiedKFold
 # from sklearn.utils.class_weight import compute_class_weight
 from transformers import AutoTokenizer
@@ -116,9 +116,9 @@ class TransformerRunableModel():
 		
 	def load_model(self):
 		if self.config["model"] == "bertimbau":
-			self.model = models.BERTimbau(self.config)
+			self.model = torch_models.BERTimbau(self.config)
 		elif self.config["model"] == "multilingual":
-			self.model = models.MultilingualBERT(self.config)
+			self.model = torch_models.MultilingualBERT(self.config)
 		self.model.create_model()
 		self.tokenizer = self.model.tokenizer
 
@@ -171,7 +171,7 @@ class TransformerRunableModel():
 		print("TRAINDATA",train_data.features)
 
 		print("VALDATA",val_data.features)
-		trainer = models.MyTrainer(
+		trainer = torch_models.MyTrainer(
 			model=self.model.model, 
 			args=training_args, 
 			train_dataset=train_data, 

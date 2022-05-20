@@ -28,9 +28,10 @@ RUN pip install -U scikit-learn==0.24.0
 # RUN pip install torchtext==0.10.1
 
 RUN pip install spacy==3.2.4
-
+RUN pip install matplotlib==3.4.3
+RUN pip install pydot==1.4.2
+RUN pip install graphviz==0.20
 RUN python3 -m spacy download pt_core_news_sm
-
 # RUN pip install scikit-learn
 # RUN pip install matplotlib
 # RUN pip install h5py
