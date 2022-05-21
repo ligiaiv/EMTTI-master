@@ -253,9 +253,9 @@ class KerasRunableModel():
 
 			conf_matrix,train_log = self.train_test_loop(train_data,test_data)
 			
-			log_report[k] = train_log
+			log_report[k] = train_log.to_csv(None)
 			results_total.loc[len(results_total)] = conf_matrix
-		self.model.save()
+			# self.model.save("models/")
 		return results_total, log_report
 
 
@@ -265,7 +265,7 @@ class KerasRunableModel():
 		log_report = {}
 		for k in range(self.config['split']):
 			conf_matrix,train_log = self.train_test_loop(self.dataset_train,self.dataset_test)
-			log_report[k] = train_log
+			log_report[k] = train_log.to_csv(None)
 			results_total.loc[len(results_total)] = conf_matrix
 		self.model.save()
 
@@ -275,7 +275,7 @@ class KerasRunableModel():
 		results_total = pd.DataFrame(columns=["TN","FP","FN","TP"]) #tn, fp, fn, tp)
 		log_report = {}
 		conf_matrix,train_log = self.train_test_loop(self.dataset_train,self.dataset_test)
-		log_report[0] = train_log
+		log_report[0] = train_log.to_csv(None)
 		results_total.loc[len(results_total)] = conf_matrix
 		self.model.save()
 

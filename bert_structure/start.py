@@ -11,8 +11,10 @@ import torch
 print("TORCH VERSION: ",print(torch.__version__))
 
 def export_results(results,config,train_log):
+	print("results",results)
+	print("config",config)
+	print("train_log",train_log)
 	table = results.to_csv(None)
-
 	config["device"] = str(config["device"])
 	output_dict = {"results":table,
 				"config":config}
@@ -66,6 +68,8 @@ if __name__ == '__main__':
 		results,train_log = runnable_model.run_turn(config)
 		print(results)
 		results_total = results_total.append(results)
+		# if isinstance(train_log, pd.DataFrame):
+		# 	train_log = train_log
 		train_logs.append(train_log)
 	export_results(results_total,config,train_logs)
 

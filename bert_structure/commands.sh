@@ -15,7 +15,15 @@ pwd
 echo "getting in folder"
 pwd 
 
-
+echo $LD_LIBRARY_PATH
+cd /usr/local/cuda/lib64/
+# ls
+pwd
+ln -s libcusolver.so.11 libcusolver.so.10
+# exit
+cd /workspace
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64
+# sudo ln libcusolver.so.11 libcusolver.so.10  # hard link
 CUDA_VISIBLE_DEVICES=0,1,2,3
 CUDA_LAUNCH_BLOCKING=1
 echo Running script $FILE
