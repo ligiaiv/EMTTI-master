@@ -1,3 +1,5 @@
 *.csv
 *.txt
 __pycache__/
+venv/
+.idea/
